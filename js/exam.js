@@ -44,16 +44,22 @@ class AutoSuggestion {
     document.body.appendChild(this.suggestionContainer);
   
     // register event listeners on the input element
-    Utils.addEvent(this.element, 'keydown', this.onInputKeyDown.bind(this));
-    Utils.addEvent(this.element, 'keyup', this.onInputKeyup.bind(this));
+    Utils.addEvent(this.element, 'keydown', Utils.debounce(this.onInputKeyDown.bind(this), 50));
+    Utils.addEvent(this.element, 'keyup', Utils.debounce(this.onInputKeyup.bind(this), 50));
     Utils.addEvent(this.element, 'blur', this.onInputBlur.bind(this));
     if (!this.options.minChars) {
       Utils.addEvent(this.element, 'focus', this.onInputFocus.bind(this));
     }
   
     // delegate suggestion item's event
-    Utils.delegateEvent("autocomplete-suggestion", "mousedown", (selectedSuggestion) => {
-    
+    Utils.delegateEvent("autocomplete-suggestion", "mouseup", (selectedSuggestion, e) => {
+      if (selectedSuggestion) {
+          var val = selectedSuggestion.getAttribute('data-val');
+          this.element.value = val;
+          this.onSelectSuggestion(val);
+          this.element.focus();
+          this.hideSuggestion();
+      }
     }, this.suggestionContainer);
   
     Utils.delegateEvent("autocomplete-suggestion", "mouseover", (selectedSuggestion) => {
@@ -74,18 +80,11 @@ class AutoSuggestion {
     }, this.suggestionContainer);
   }
   /**
-   * Handle focus event on input element
-   */
-  onInputFocus(e) {
-    this.lastSearchTerm = '\n';
-    this.onInputKeyup(e);
-  }
-  /**
    * Handle keydown event on input element
    */
   onInputKeyDown(e) {
     const key = e.keyCode;
-    // down (40), up (38)
+    
     if ((key === 40 || key === 38) && this.suggestionContainer.innerHTML) {
       let nextSelectedSuggestion, selectedSuggestion = this.suggestionContainer.querySelector('.autocomplete-suggestion.selected');
       if (!selectedSuggestion) {
@@ -104,24 +103,23 @@ class AutoSuggestion {
         }
         else {
           this.element.value = this.lastSearchTerm;
-          nextSelectedSuggestion = 0;
+          nextSelectedSuggestion = null;
         }
       }
       this.updateSuggestionContainer(0, nextSelectedSuggestion);
-      return false;
     }
     // esc
     else if (key === 27) {
       this.element.value = this.lastSearchTerm;
-      Utils.debounce(this.hideSuggestion.bind(this), 20)();
+      this.hideSuggestion();
     }
     // enter
-    else if (key === 13 || key === 9) {
-      e.preventDefault();
+    else if (key === 13) {
       let selectedSuggestion = this.suggestionContainer.querySelector('.autocomplete-suggestion.selected');
       if (selectedSuggestion && this.suggestionContainer.style.display !== 'none') {
         this.onSelectSuggestion(selectedSuggestion.getAttribute('data-val'));
-        Utils.debounce(this.hideSuggestion.bind(this), 20)();
+        this.element.focus();
+        this.hideSuggestion();
       }
     }
   }
@@ -130,12 +128,11 @@ class AutoSuggestion {
    */
   onInputKeyup(e) {
     const key = window.event ? e.keyCode : e.which;
-    if (!key || (key < 35 || key > 40) && key !== 13 && key !== 27) {
+    if (key != 27 && key != 38 && key != 40 && key != 37 && key != 39 && key != 13) {
       let searchTerm = this.element.value; // get the search term
       if (searchTerm.length >= this.options.minChars) {
         if (searchTerm !== this.lastSearchTerm) {
           this.lastSearchTerm = searchTerm;
-          clearTimeout(this.timer);
           if (this.options.cache) {
             if (searchTerm in this.cache) { // if the search already cached
               this.suggest(this.cache[searchTerm]);
@@ -145,26 +142,44 @@ class AutoSuggestion {
             for (let i=1; i<searchTerm.length-this.options.minChars; i++) {
               let previousSearchTerm = searchTerm.slice(0, searchTerm.length-i);
               if (previousSearchTerm in this.cache && !this.cache[previousSearchTerm].length) {
-                this.suggest([]); return;
+                this.suggest([]); 
+                return;
               }
             }
           }
           // if the search term is not cached, then perform new search against data-source
-          this.timer = setTimeout(() => {
-            this.options.dataSource(searchTerm, this.suggest.bind(this));
-          }, this.options.delay);
+          this.options.dataSource(searchTerm, this.suggest.bind(this));
         }
       } else {
         this.lastSearchTerm = searchTerm;
-        Utils.debounce(this.hideSuggestion.bind(this), 20)();
+        this.hideSuggestion();
       }
     }
+  }
+  /**
+   * Handle focus event on input element
+   */
+  onInputFocus(e) {
+    this.lastSearchTerm = '\n';
+    Utils.triggerEvent(this.element, 'keyup');
   }
   /**
    * Handle blur event on input element
    */
   onInputBlur() {
-    
+    try { 
+      var over_sb = document.querySelector('.autocomplete-suggestions:hover'); 
+    } 
+    catch(e) { 
+      var over_sb = 0; 
+    }
+    if (!over_sb) {
+        this.lastSearchTerm = this.element.value;
+        this.hideSuggestion();
+    } 
+    else {
+      this.element.focus();
+    }
   }
   /**
    * Responsible for building the suggestion list based on returned data from data source
@@ -172,11 +187,12 @@ class AutoSuggestion {
    */
   suggest(data) {
     const searchTerm = this.element.value;
+    this.cache[searchTerm] = data;
     if (data.length && searchTerm.length >= this.options.minChars) {
       // build the list suggestions
       let suggestionString = '';
       for (let i=0;i<data.length;i++)  {
-        suggestionString += this.renderItem(data[i], searchTerm);
+        suggestionString += this.renderSuggestionItem(data[i], searchTerm);
       }
       this.suggestionContainer.innerHTML = suggestionString;
       this.updateSuggestionContainer();
@@ -190,7 +206,7 @@ class AutoSuggestion {
    * @param {object} item - item data to render
    * @param {string} search - search term
    */
-  renderItem(item, search) {
+  renderSuggestionItem(item, search) {
     // This must be implemented in the inherited classes
   }
   /**
@@ -200,20 +216,28 @@ class AutoSuggestion {
     let rect = this.element.getBoundingClientRect();
     this.suggestionContainer.style.left = Math.round(rect.left + (window.pageXOffset || document.documentElement.scrollLeft) + this.options.offsetLeft) + 'px';
     this.suggestionContainer.style.top = Math.round(rect.bottom + (window.pageYOffset || document.documentElement.scrollTop) + this.options.offsetTop) + 'px';
-    this.suggestionContainer.style.width = Math.round(rect.right - rect.left) + 'px'; // outerWidth
+    this.suggestionContainer.style.width = Math.round(rect.right - rect.left) + 'px';
     if (!resize) {
-      this.suggestionContainer.style.display = 'block';
-      if (!this.suggestionContainer.maxHeight) { this.suggestionContainer.maxHeight = parseInt((window.getComputedStyle ? getComputedStyle(this.suggestionContainer, null) : this.suggestionContainer.currentStyle).maxHeight); }
-      if (!this.suggestionContainer.suggestionHeight) this.suggestionContainer.suggestionHeight = this.suggestionContainer.querySelector('.autocomplete-suggestion').offsetHeight;
-      if (this.suggestionContainer.suggestionHeight)
-        if (!nextSuggestionItem) this.suggestionContainer.scrollTop = 0;
+      this.suggestionContainer.style.display = 'block'; // display suggestion box
+      if (!this.suggestionContainer.maxHeight) { 
+        this.suggestionContainer.maxHeight = parseInt((window.getComputedStyle ? getComputedStyle(this.suggestionContainer, null) : this.suggestionContainer.currentStyle).maxHeight);
+      }
+      if (!this.suggestionContainer.suggestionHeight) {
+        this.suggestionContainer.suggestionHeight = this.suggestionContainer.querySelector('.autocomplete-suggestion').offsetHeight;
+      }
+      if (this.suggestionContainer.suggestionHeight) {
+        if (!nextSuggestionItem) {
+          this.suggestionContainer.scrollTop = 0;
+        }
         else {
-          let scrTop = this.suggestionContainer.scrollTop, selTop = nextSuggestionItem.getBoundingClientRect().top - this.suggestionContainer.getBoundingClientRect().top;
+          let scrTop = this.suggestionContainer.scrollTop;
+          let selTop = nextSuggestionItem.getBoundingClientRect().top - this.suggestionContainer.getBoundingClientRect().top;
           if (selTop + this.suggestionContainer.suggestionHeight - this.suggestionContainer.maxHeight > 0)
             this.suggestionContainer.scrollTop = selTop + this.suggestionContainer.suggestionHeight + scrTop - this.suggestionContainer.maxHeight;
           else if (selTop < 0)
             this.suggestionContainer.scrollTop = selTop + scrTop;
         }
+      }
     }
   }
   /**
@@ -235,12 +259,12 @@ class AppsSuggestion extends AutoSuggestion{
     super(element, options);
   }
   
-  renderItem(item, search) {
+  renderSuggestionItem(item, search) {
     // escape special characters
-    search = search.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+    search = Utils.escape(search);
     // find all occurrences of the search term
     let re = new RegExp("(" + search.split(' ').join('|') + ")", "gi");
-    return `<div class="autocomplete-suggestion" data-val="${item.name}"><img src="${item.thumbnailUrl}"/><span>${item.name.replace(re, "<b>$1</b>")}</span></div>`;
+    return `<div class="autocomplete-suggestion" data-val="${Utils.escape(item.name)}"><img src="${item.thumbnailUrl}"/><span>${Utils.escape(item.name).replace(re, "<b>$1</b>")}</span></div>`;
   }
   
   onSelectSuggestion(item) {
@@ -248,7 +272,11 @@ class AppsSuggestion extends AutoSuggestion{
   }
 }
 
+
 class Utils {
+  static escape(input) {
+    return input.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+  }
   static removeClass(el, cssClass) {
     el.className = el.className.replace(cssClass, '');
   }
@@ -293,6 +321,18 @@ class Utils {
     else {
       el.removeEventListener(type, handler);
     }
+  }
+  static triggerEvent(el, type){
+      if (document.createEvent) { 
+        var e = document.createEvent('HTMLEvents'); 
+        e.initEvent(type, true, true); 
+        el.dispatchEvent(e); 
+      }
+      else { 
+        var e = document.createEventObject(); 
+        e.eventType = type; 
+        el.fireEvent('on'+e.eventType, e); 
+      }
   }
   /**
    * delegate event.
