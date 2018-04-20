@@ -1,0 +1,52 @@
+.autocomplete-suggestions {
+    text-align: left; 
+    cursor: default; 
+    border: 1px solid #ddd; 
+    border-top: 0; 
+    background: #fff;
+    box-shadow: -1px 1px 2px rgba(0,0,0,.1);
+    
+    // position spec
+    position: absolute; 
+    display: none;
+    z-index: 9999;
+    overflow: hidden; 
+    overflow-y: auto; 
+    box-sizing: border-box;
+    max-height: 400px;
+
+    .selected {
+        background: #f0f0f0; 
+    }
+
+    .autocomplete-suggestion {
+        position: relative; 
+        padding: 0 .6em; 
+        line-height: 24px; 
+        white-space: nowrap; 
+        overflow: hidden; 
+        text-overflow: ellipsis; 
+        font-size: 1.02em; 
+        color: #333;
+        padding: 5px;
+        border-bottom: 1px solid #EAEAEA;
+
+        &:last-of-type {
+            border-bottom: none;
+        }
+
+        b {
+            font-weight: normal; 
+            color: #1f8dd6; 
+        }
+
+        img { 
+            width: 32px;
+            height: "auto";
+        }
+
+        span { 
+            margin-left: 8px;
+        }
+    }
+}
