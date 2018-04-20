@@ -1,3 +1,8 @@
+.form-control {
+    margin-top: 8px;
+    max-width: 300px;    
+}
+
 .autocomplete-suggestions {
     text-align: left; 
     cursor: default; 
@@ -45,7 +50,7 @@
             height: "auto";
         }
 
-        span { 
+        span {
             margin-left: 8px;
         }
     }
