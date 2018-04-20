@@ -6,7 +6,7 @@ const SOURCE_PATH = path.resolve(__dirname, '.');
 module.exports = function () {
   
   const webpackConfig = {
-    entry: ['./css/main.scss'],
+    entry: ['./js/exam.js','./css/main.scss'],
     output: {
       path: SOURCE_PATH
     },

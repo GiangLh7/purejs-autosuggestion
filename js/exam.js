@@ -208,6 +208,11 @@ class AutoSuggestion {
    */
   renderSuggestionItem(item, search) {
     // This must be implemented in the inherited classes
+    // escape special characters
+    search = Utils.escape(search);
+    // find all occurrences of the search term
+    let re = new RegExp("(" + search.split(' ').join('|') + ")", "gi");
+    return `<div class="autocomplete-suggestion" data-val="${Utils.escape(item)}"><span>${Utils.escape(item).replace(re, "<b>$1</b>")}</span></div>`;
   }
   /**
    * Update position and layout of suggestion container
