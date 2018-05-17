@@ -17,10 +17,44 @@
     </div>
   </form>
 
+
+
+  <form class="form-horizontal" role="form" autocomplete="off" onsubmit="return false;">
+    <div class="form-group">
+      <label for="txtPrice" class="control-label">Input a number: </label>
+      <input class="form-control" type="text" name="txtPrice" value="" id="txtPrice" />
+    </div>
+
+    <ul id="btcPriceList">
+
+    </ul>
+  </form>
+
   <div class="contents">
   </div>
 </div>
 <script src="json/data.js"></script>
 <script src="js/exam.js"></script>
+<script src="js/tableSort.js"></script>
+<script type="text/javascript">
+  (function() {
+    const data = [
+      // {key: 0, value: 1},
+      // {key: 1, value: 10},
+      // {key: 2, value: 15},
+      // {key: 3, value: 12}
+    ];
+    const tablePrices = new TableSort("btcPriceList", data);
+    const txtPrice = document.getElementById("txtPrice");
+
+    Utils.addEvent(txtPrice, "keyup", function(e) {
+      const key = e.keyCode;
+      if (key === 13) {
+        tablePrices.add({value: parseInt(txtPrice.value)});
+        txtPrice.value = "";
+      }
+    })
+  })();
+</script>
 </body>
 </html>
